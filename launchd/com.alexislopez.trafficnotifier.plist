@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Plantilla: scripts/install.sh reemplaza __PYTHON__, __REPO__ y __LOG__. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.alexislopez.trafficnotifier</string>
+    <!-- Se ejecuta el lanzador bin/TrafficNotifier para que macOS muestre ese nombre. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>__REPO__/bin/TrafficNotifier</string>
+        <string>check</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHON</key>
+        <string>__PYTHON__</string>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>__REPO__</string>
+    <!-- Cada :00 y :30; el script filtra el horario de config.toml. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Minute</key>
+            <integer>30</integer>
+        </dict>
+    </array>
+    <key>StandardOutPath</key>
+    <string>__LOG__</string>
+    <key>StandardErrorPath</key>
+    <string>__LOG__</string>
+</dict>
+</plist>

@@ -1,0 +1,5 @@
+#!/bin/zsh
+# Lanzador con nombre propio: macOS muestra "TrafficNotifier" en Ítems de inicio
+# en lugar de "python3.13". Uso: bin/TrafficNotifier check [--force] | test-notify
+cd "${0:A:h:h}" || exit 1
+exec "${PYTHON:-/opt/homebrew/bin/python3.13}" -m traffic_notifier "$@"

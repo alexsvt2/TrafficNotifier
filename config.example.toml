@@ -1,0 +1,29 @@
+# Copia este archivo a config.toml y llénalo. config.toml no se sube a git.
+
+# API key de Google Cloud con Routes API habilitada (ver README).
+google_api_key = "..."
+
+# Topic de ntfy. Los topics son públicos: usa un nombre difícil de adivinar.
+ntfy_topic = "..."
+# ntfy_server = "https://ntfy.sh"
+
+[schedule]
+# Solo se revisa dentro de este horario (todos los días).
+start = "07:00"
+end = "22:00"
+
+[thresholds]
+# tiempo con tráfico / tiempo normal
+moderate = 1.15   # >= 15% más lento → 🟡
+heavy = 1.40      # > 40% más lento → 🔴
+
+# Origen y destino: dirección en texto o "lat,lng".
+[[routes]]
+name = "Casa → Trabajo"
+origin = "19.4326,-99.1332"
+destination = "Paseo de la Reforma 222, Ciudad de México"
+
+[[routes]]
+name = "Trabajo → Casa"
+origin = "Paseo de la Reforma 222, Ciudad de México"
+destination = "19.4326,-99.1332"
