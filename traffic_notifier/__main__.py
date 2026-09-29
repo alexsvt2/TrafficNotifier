@@ -1,4 +1,4 @@
-"""CLI: python -m traffic_notifier {check [--force] | test-notify}"""
+"""CLI: python -m traffic_notifier {serve | check [--force] | test-notify}"""
 
 import argparse
 import sys
@@ -8,6 +8,7 @@ from pathlib import Path
 from . import ntfy
 from .check import run_check
 from .config import ConfigError, load_config
+from .daemon import serve
 from .routes_api import get_travel_time
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
@@ -17,12 +18,15 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="traffic_notifier")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("serve", help="queda corriendo: revisa cada intervalo y atiende el comando por ntfy")
     check = commands.add_parser("check", help="revisa las rutas y notifica")
     check.add_argument("--force", action="store_true", help="ignora el horario")
     commands.add_parser("test-notify", help="manda un push de prueba")
     args = parser.parse_args(argv)
 
     try:
+        if args.command == "serve":
+            serve(args.config, log)
         config = load_config(args.config)
         now = datetime.now()
         if args.command == "test-notify":

@@ -9,7 +9,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>__REPO__/bin/TrafficNotifier</string>
-        <string>check</string>
+        <string>serve</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
@@ -18,18 +18,15 @@
     </dict>
     <key>WorkingDirectory</key>
     <string>__REPO__</string>
-    <!-- Cada :00 y :30; el script filtra el horario de config.toml. -->
-    <key>StartCalendarInterval</key>
-    <array>
-        <dict>
-            <key>Minute</key>
-            <integer>0</integer>
-        </dict>
-        <dict>
-            <key>Minute</key>
-            <integer>30</integer>
-        </dict>
-    </array>
+    <!-- Proceso que queda corriendo (serve): lleva su propio temporizador y
+         escucha el topic de ntfy. launchd lo relanza si se cae; ThrottleInterval
+         evita un bucle de reinicios que gaste peticiones a Google. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
     <key>StandardOutPath</key>
     <string>__LOG__</string>
     <key>StandardErrorPath</key>

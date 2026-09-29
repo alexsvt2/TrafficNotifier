@@ -11,6 +11,13 @@ ntfy_topic = "..."
 # Solo se revisa dentro de este horario (todos los días).
 start = "07:00"
 end = "22:00"
+interval_minutes = 30   # cada cuánto revisa solo
+
+[command]
+# Manda este texto al topic desde la app ntfy para revisar al momento
+# (sin importar mayúsculas). La siguiente revisión automática se recorre.
+keyword = "revisar"
+cooldown_minutes = 2    # mínimo entre revisiones a demanda
 
 [thresholds]
 # tiempo con tráfico / tiempo normal

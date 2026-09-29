@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Instala la tarea de launchd que ejecuta la revisión cada 30 min.
+# Instala la tarea de launchd que deja corriendo TrafficNotifier (serve).
 set -euo pipefail
 
 LABEL="com.alexislopez.trafficnotifier"
@@ -17,5 +17,5 @@ sed -e "s|__PYTHON__|$PYTHON|g" -e "s|__REPO__|$REPO|g" -e "s|__LOG__|$LOG|g" \
 
 launchctl bootout "gui/$UID/$LABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$UID" "$TARGET"
-echo "Instalado. Log: $LOG"
-echo "Probar ahora: launchctl kickstart -k gui/$UID/$LABEL"
+echo "Instalado y escuchando. Log: $LOG"
+echo "Reiniciar: launchctl kickstart -k gui/$UID/$LABEL"
