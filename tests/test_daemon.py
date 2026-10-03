@@ -1,9 +1,11 @@
+import tempfile
 import unittest
 from dataclasses import replace
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from traffic_notifier.config import Config, Route
-from traffic_notifier.daemon import Scheduler
+from traffic_notifier.daemon import Scheduler, load_paused_at, save_paused_at
 from traffic_notifier.ntfy import Message
 from traffic_notifier.routes_api import TravelTime
 
@@ -107,6 +109,79 @@ class CommandTest(unittest.TestCase):
         s, fakes = scheduler()
         self.assertFalse(s.on_message(CONFIG, command(MORNING - timedelta(minutes=6)), MORNING))
         self.assertEqual(fakes.lookups, 0)
+
+
+class PauseTest(unittest.TestCase):
+    def paused(self, at=MORNING):
+        s, fakes = scheduler()
+        s.on_message(CONFIG, command(at, "detener"), at)
+        return s, fakes
+
+    def test_stop_confirms_and_skips_automatic_checks(self):
+        s, fakes = self.paused()
+        self.assertIn("hasta mañana a las 07:00", fakes.sent[-1]["message"])
+        self.assertFalse(s.tick(CONFIG, MORNING + timedelta(minutes=20)))
+        self.assertEqual(fakes.lookups, 0)
+
+    def test_reminds_while_paused(self):
+        s, fakes = self.paused()
+        s.tick(CONFIG, MORNING + timedelta(minutes=59))
+        self.assertEqual(len(fakes.sent), 1)  # solo la confirmación
+        s.tick(CONFIG, MORNING + timedelta(minutes=60))
+        s.tick(CONFIG, MORNING + timedelta(minutes=61))
+        self.assertEqual(len(fakes.sent), 2)
+        self.assertIn("Sigo conectado", fakes.sent[-1]["message"])
+        self.assertIn("«iniciar»", fakes.sent[-1]["message"])
+
+    def test_no_reminders_outside_window(self):
+        s, fakes = self.paused()
+        s.tick(CONFIG, NIGHT)
+        self.assertEqual(len(fakes.sent), 1)
+
+    def test_resumes_next_day_at_start(self):
+        s, fakes = self.paused()
+        tomorrow = MORNING + timedelta(days=1)
+        self.assertTrue(s.paused(CONFIG, tomorrow.replace(hour=6, minute=59)))
+        self.assertTrue(s.tick(CONFIG, tomorrow.replace(hour=7, minute=0)))
+        self.assertIsNone(s.paused_at)
+        self.assertEqual(fakes.lookups, 1)
+
+    def test_start_resumes(self):
+        s, fakes = self.paused()
+        now = MORNING + timedelta(minutes=5)
+        self.assertFalse(s.on_message(CONFIG, command(now, "Iniciar"), now))
+        self.assertIn("reanudadas", fakes.sent[-1]["message"])
+        self.assertTrue(s.tick(CONFIG, now))
+
+    def test_start_when_not_paused(self):
+        s, fakes = scheduler()
+        s.on_message(CONFIG, command(MORNING, "iniciar"), MORNING)
+        self.assertIn("ya estaban activas", fakes.sent[-1]["message"])
+
+    def test_manual_check_works_while_paused(self):
+        s, fakes = self.paused()
+        self.assertTrue(s.on_message(CONFIG, command(MORNING), MORNING))
+        self.assertIsNotNone(s.paused_at)
+
+    def test_ignores_stale_stop(self):
+        s, fakes = scheduler()
+        s.on_message(CONFIG, command(MORNING - timedelta(minutes=6), "detener"), MORNING)
+        self.assertIsNone(s.paused_at)
+
+    def test_restored_pause_expires(self):
+        fakes = Fakes()
+        s = Scheduler(fakes.get_travel_time, fakes.send, paused_at=MORNING - timedelta(days=3))
+        self.assertTrue(s.tick(CONFIG, MORNING))
+
+    def test_state_file_round_trip(self):
+        path = Path(tempfile.mkdtemp()) / "state.json"
+        self.assertIsNone(load_paused_at(path))
+        save_paused_at(path, MORNING)
+        self.assertEqual(load_paused_at(path), MORNING)
+        save_paused_at(path, None)
+        self.assertIsNone(load_paused_at(path))
+        path.write_text("basura")
+        self.assertIsNone(load_paused_at(path))
 
 
 if __name__ == "__main__":
