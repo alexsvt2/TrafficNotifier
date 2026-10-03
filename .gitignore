@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .DS_Store
 state.json
+config.toml.bak
+config.toml.tmp

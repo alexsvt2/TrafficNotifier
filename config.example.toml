@@ -37,7 +37,12 @@ heavy = 1.40      # > 40% más lento → 🔴
 enabled = true
 every_minutes = 60      # una imagen por ruta como máximo cada tanto
 
-# Origen y destino: dirección en texto o "lat,lng".
+# Lugares con etiqueta, opcional: se pueden usar como origin/destination.
+# También se manejan con `python -m traffic_notifier place add ...` (ver README).
+# [places]
+# Casa = "19.4326,-99.1332"
+
+# Origen y destino: etiqueta de un lugar, dirección en texto o "lat,lng".
 [[routes]]
 name = "Casa → Trabajo"
 origin = "19.4326,-99.1332"

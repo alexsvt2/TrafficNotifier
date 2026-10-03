@@ -50,11 +50,12 @@ def load_config(path: Path) -> Config:
     thresholds = data.get("thresholds", {})
     command = data.get("command", {})
     map_ = data.get("map", {})
+    places = _places(data.get("places", {}))
     config = Config(
         google_api_key=_required_str(data, "google_api_key"),
         ntfy_topic=_required_str(data, "ntfy_topic"),
         ntfy_server=data.get("ntfy_server", Config.ntfy_server),
-        routes=tuple(_route(r, i) for i, r in enumerate(data.get("routes", []), 1)),
+        routes=tuple(_route(r, i, places) for i, r in enumerate(data.get("routes", []), 1)),
         start=_time(schedule.get("start", "07:00"), "schedule.start"),
         end=_time(schedule.get("end", "22:00"), "schedule.end"),
         interval_minutes=_number(schedule, "interval_minutes", Config.interval_minutes, "schedule", minimum=1),
@@ -89,11 +90,25 @@ def _required_str(data: dict, key: str) -> str:
     return value.strip()
 
 
-def _route(data: dict, index: int) -> Route:
+def _places(table) -> dict:
+    """[places]: etiqueta = dirección o "lat,lng", para no repetirlas en cada ruta."""
+    if not isinstance(table, dict) or not all(isinstance(v, str) and v.strip() for v in table.values()):
+        raise ConfigError('[places] debe ser una lista de etiqueta = "dirección o lat,lng".')
+    return table
+
+
+def _route(data: dict, index: int, places: dict) -> Route:
     try:
-        return Route(name=data.get("name") or f"Ruta {index}", origin=data["origin"], destination=data["destination"])
+        origin, destination = data["origin"], data["destination"]
     except KeyError as e:
         raise ConfigError(f"La ruta #{index} no tiene {e.args[0]}.")
+    # Origen y destino pueden ser la etiqueta de un lugar o la dirección misma.
+    default = f"{origin} → {destination}" if origin in places and destination in places else f"Ruta {index}"
+    return Route(
+        name=data.get("name") or default,
+        origin=places.get(origin, origin),
+        destination=places.get(destination, destination),
+    )
 
 
 def _time(value: str, key: str) -> time:

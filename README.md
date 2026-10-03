@@ -39,6 +39,23 @@ cp config.example.toml config.toml
 ```
 Pon tu API key, el topic y tus rutas. Origen y destino aceptan una dirección en texto o `lat,lng`; para sacar las coordenadas, haz clic derecho en Google Maps sobre el punto.
 
+### Lugares y rutas desde la terminal
+En vez de editar el archivo, puedes guardar cada lugar una vez, con una etiqueta, y armar las rutas con las etiquetas:
+```bash
+PY=/opt/homebrew/bin/python3.13
+$PY -m traffic_notifier place add Casa "17.8720743,-92.9256709"
+$PY -m traffic_notifier place add UT "https://www.google.com/maps/place/..."   # saca las coordenadas del pin del link
+$PY -m traffic_notifier route add Casa UT --round-trip                         # ida y vuelta
+$PY -m traffic_notifier route list
+$PY -m traffic_notifier route remove 3                                         # número según route list
+$PY -m traffic_notifier place list / place remove UT
+$PY -m traffic_notifier set schedule.interval_minutes 25                       # cualquier ajuste menos la API key
+$PY -m traffic_notifier show                                                   # todo, sin la API key
+```
+Un lugar acepta `lat,lng`, una dirección o un link largo de Google Maps (los links cortos `maps.app.goo.gl` no traen coordenadas). Si vuelves a agregar un lugar con la misma etiqueta, se actualiza y sus rutas lo siguen. En `config.toml` quedan como una tabla `[places]`, y `origin`/`destination` de una ruta pueden ser una etiqueta.
+
+Cada cambio se valida antes de guardar: si queda inválido, el archivo no se toca. La API key nunca cambia con estos comandos (solo se edita a mano), se guarda un respaldo en `config.toml.bak` y el servicio aplica el cambio solo. Ojo: al guardar así se pierden los comentarios del archivo.
+
 ## Uso
 ```bash
 PY=/opt/homebrew/bin/python3.13
