@@ -14,6 +14,9 @@ Use `/opt/homebrew/bin/python3.13`: the system Python is 3.9, and the code needs
 /opt/homebrew/bin/python3.13 -m traffic_notifier serve                   # the daemon launchd runs (needs config.toml)
 /opt/homebrew/bin/python3.13 -m traffic_notifier check [--force]         # one real check
 /opt/homebrew/bin/python3.13 -m traffic_notifier test-notify
+/opt/homebrew/bin/python3.13 -m traffic_notifier validate                # config.toml check, exit 1 on ConfigError
+/opt/homebrew/bin/python3.13 -m traffic_notifier remote check|stop|start # posts the keyword to the topic for the running daemon
+./scripts/build-app.sh                                                   # builds macapp/main.swift into ~/Applications/TrafficNotifier.app
 ./scripts/install.sh / ./scripts/uninstall.sh                            # launchd agent
 ```
 
@@ -29,6 +32,8 @@ The design follows the deep-module vocabulary of the `codebase-design` skill. Ea
 - `daemon.Scheduler(get_travel_time, send, snapshot)` decides *when* to check: `tick(config, now)` for the interval, `on_message(config, msg, now)` for the keyword. It holds `last_check` in memory and uses the same injection seam (`tests/test_daemon.py`). The pause is `paused_at` (a datetime, so expiry is derived, not scheduled); `on_message` also handles stop/start, and on-demand checks still work while paused. `serve` owns the persistence: it loads `state.json` (next to `config.toml`, gitignored) into `Scheduler(paused_at=...)` and rewrites it whenever `scheduler.paused_at` changes, because launchd can relaunch the process at any time. Our own notifications arrive on the same topic; they're ignored because they never equal a keyword. `daemon.serve` wires it up: a listener thread feeds a queue (reconnecting with `since=<last id>`), the main loop reloads `config.toml` each pass and never waits more than 30 s because the monotonic clock stops while the Mac sleeps.
 
 Routes are grouped with their return trip (next route with origin/destination swapped); groups are separated by a dashed line and get one Maps button each (ntfy allows 3).
+
+`macapp/main.swift` is an optional menu bar app (AppKit, single file, built with `swiftc` by `scripts/build-app.sh`, which bakes the repo and Python paths into Info.plist). It is only a controller: the launchd `serve` process stays the single engine, so there are never two processes querying Google. The app reads `state.json` (`paused_at` plus `last_report`, the last traffic notification, which `Scheduler._check` records and `serve` writes atomically) and acts through the CLI: `remote check|stop|start`, `validate`, and `launchctl kickstart`. It never writes `config.toml`; "Editar configuración" opens the file, which stays the only source of configuration. The version shown comes from `traffic_notifier.__version__`; bump it with each git tag.
 
 One route failing must not block the others. Failures appear as ⚠️ lines in the same notification.
 

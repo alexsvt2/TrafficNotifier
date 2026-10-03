@@ -73,6 +73,21 @@ tail -f ~/Library/Logs/TrafficNotifier.log                         # ver el log
 ```
 El proceso queda corriendo y launchd lo relanza si se cae. Si mueves la carpeta del proyecto, vuelve a ejecutar `install.sh`. Los cambios en `config.toml` se aplican solos en menos de un minuto, salvo el topic y el servidor de ntfy, que requieren reiniciar el proceso.
 
+### App de barra de menú (opcional)
+```bash
+./scripts/build-app.sh                       # compila y deja ~/Applications/TrafficNotifier.app
+open ~/Applications/TrafficNotifier.app
+```
+Pone un ícono junto al reloj con el color de la última revisión (🟢 🟡 🔴, o ⏸ en pausa). El menú muestra la última notificación y permite revisar al momento, detener o iniciar las revisiones automáticas, abrir `config.toml`, ver el log y reiniciar el servicio. Avisa si `config.toml` tiene un error o si el servicio no está corriendo.
+
+La app no revisa el tráfico: solo controla el servicio de launchd, que sigue siendo el único proceso que consulta a Google. Sin el servicio instalado (`install.sh`) no hace nada. Requiere las Command Line Tools de Xcode (`xcode-select --install`) para compilar. Si mueves la carpeta del proyecto, vuelve a ejecutar `build-app.sh`. Para que abra al iniciar sesión, agrégala en Ajustes del Sistema → General → Ítems de inicio.
+
+Los botones usan los mismos comandos de ntfy, también disponibles en la terminal:
+```bash
+$PY -m traffic_notifier remote check|stop|start   # manda revisar / detener / iniciar al servicio
+$PY -m traffic_notifier validate                  # revisa que config.toml sea válido
+```
+
 ## Tests
 ```bash
 /opt/homebrew/bin/python3.13 -m unittest discover tests

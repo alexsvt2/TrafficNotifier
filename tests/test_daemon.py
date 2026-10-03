@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from traffic_notifier.config import Config, Route
-from traffic_notifier.daemon import Scheduler, load_paused_at, save_paused_at
+from traffic_notifier.daemon import Scheduler, load_state, save_state
 from traffic_notifier.ntfy import Message
 from traffic_notifier.routes_api import TravelTime
 
@@ -175,13 +175,21 @@ class PauseTest(unittest.TestCase):
 
     def test_state_file_round_trip(self):
         path = Path(tempfile.mkdtemp()) / "state.json"
-        self.assertIsNone(load_paused_at(path))
-        save_paused_at(path, MORNING)
-        self.assertEqual(load_paused_at(path), MORNING)
-        save_paused_at(path, None)
-        self.assertIsNone(load_paused_at(path))
+        self.assertEqual(load_state(path), (None, None))
+        report = {"at": "2026-09-29T08:00:00", "title": "Tráfico 08:00", "message": "🟢 A → B", "icon": "🟢"}
+        save_state(path, MORNING, report)
+        self.assertEqual(load_state(path), (MORNING, report))
+        save_state(path, None, None)
+        self.assertEqual(load_state(path), (None, None))
         path.write_text("basura")
-        self.assertIsNone(load_paused_at(path))
+        self.assertEqual(load_state(path), (None, None))
+
+    def test_check_records_last_report(self):
+        s, fakes = scheduler()
+        s.tick(CONFIG, MORNING)
+        self.assertEqual(s.last_report["title"], "Tráfico 08:00")
+        self.assertEqual(s.last_report["icon"], "🟢")
+        self.assertEqual(s.last_report["message"], fakes.sent[-1]["message"])
 
 
 if __name__ == "__main__":

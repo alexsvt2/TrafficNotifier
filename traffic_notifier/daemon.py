@@ -12,7 +12,7 @@ from pathlib import Path
 
 from . import ntfy
 from . import static_map
-from .check import MapSnapshots, in_window, run_check
+from .check import FLUIDO, MODERADO, PESADO, MapSnapshots, in_window, run_check
 from .config import Config, ConfigError, load_config
 from .routes_api import get_traffic_path, get_travel_time
 
@@ -22,6 +22,7 @@ MAX_COMMAND_AGE = timedelta(minutes=5)
 # así que se recalcula seguido con la hora real.
 MAX_WAIT_S = 30
 STATE_FILE = "state.json"
+_ICONS = {level[3]: level[0] for level in (FLUIDO, MODERADO, PESADO)}
 
 
 class Scheduler:
@@ -39,6 +40,8 @@ class Scheduler:
         self.paused_at = paused_at
         self.last_check: datetime | None = None
         self.last_reminder: datetime | None = None
+        # Última notificación de tráfico, para mostrarla fuera de ntfy (app de barra de menú).
+        self.last_report: dict | None = None
 
     def paused(self, config: Config, now: datetime) -> bool:
         if self.paused_at and now >= _resume_time(self.paused_at, config):
@@ -110,7 +113,17 @@ class Scheduler:
         # Se marca antes de enviar: si ntfy falla, Google ya se consultó y no
         # hay que reintentar cada vuelta del bucle.
         self.last_check = now
-        run_check(config, now, self.get_travel_time, self.send, force=True, snapshot=self.snapshot)
+
+        def send(**kwargs):
+            self.last_report = {
+                "at": now.isoformat(timespec="seconds"),
+                "title": kwargs["title"],
+                "message": kwargs["message"],
+                "icon": _ICONS.get(kwargs["tags"][0], "⚠️"),
+            }
+            self.send(**kwargs)
+
+        run_check(config, now, self.get_travel_time, send, force=True, snapshot=self.snapshot)
 
     def _notify(self, config: Config, tag: str, message: str) -> None:
         self.send(
@@ -126,17 +139,20 @@ class Scheduler:
 def serve(config_path: Path, log) -> None:
     """Bucle infinito; launchd lo mantiene vivo (KeepAlive)."""
     config = load_config(config_path)
-    # La pausa se guarda en disco: launchd puede relanzar el proceso en cualquier momento.
+    # El estado se guarda en disco: launchd puede relanzar el proceso en cualquier
+    # momento, y la app de barra de menú lo lee de ahí.
     state_path = config_path.with_name(STATE_FILE)
-    saved = load_paused_at(state_path)
+    paused_at, report = load_state(state_path)
     scheduler = Scheduler(get_travel_time, ntfy.send, MapSnapshots(get_traffic_path, static_map.render),
-                          paused_at=saved)
+                          paused_at=paused_at)
+    scheduler.last_report = report
+    saved = (paused_at, report)
     inbox: queue.Queue = queue.Queue()
     threading.Thread(
         target=_listen_forever, args=(config.ntfy_topic, config.ntfy_server, inbox, log), daemon=True
     ).start()
     log(f"Escuchando '{config.keyword}', '{config.stop_keyword}' e '{config.start_keyword}' en ntfy; "
-        f"revisión cada {config.interval_minutes} min{' (en pausa)' if saved else ''}.")
+        f"revisión cada {config.interval_minutes} min{' (en pausa)' if paused_at else ''}.")
 
     while True:
         try:
@@ -147,10 +163,12 @@ def serve(config_path: Path, log) -> None:
         if _guard(log, lambda: scheduler.tick(config, datetime.now())):
             log("Revisión automática enviada.")
         # Aquí ya se atendió el último comando y tick ya venció la pausa si tocaba.
-        if scheduler.paused_at != saved:
-            saved = scheduler.paused_at
-            save_paused_at(state_path, saved)
-            log("Revisiones automáticas detenidas." if saved else "Revisiones automáticas reanudadas.")
+        current = (scheduler.paused_at, scheduler.last_report)
+        if current != saved:
+            if current[0] != saved[0]:
+                log("Revisiones automáticas detenidas." if current[0] else "Revisiones automáticas reanudadas.")
+            saved = current
+            save_state(state_path, *saved)
 
         wait = min(MAX_WAIT_S, max(1.0, scheduler.seconds_until_due(config, datetime.now())))
         try:
@@ -161,18 +179,26 @@ def serve(config_path: Path, log) -> None:
             log("Revisión a demanda enviada.")
 
 
-def load_paused_at(path: Path) -> datetime | None:
+def load_state(path: Path) -> tuple:
+    """(paused_at, last_report) guardados; (None, None) sin archivo o ilegible."""
     try:
-        return datetime.fromisoformat(json.loads(path.read_text())["paused_at"])
-    except (OSError, ValueError, KeyError, TypeError):
-        return None  # sin archivo o ilegible: no hay pausa
+        data = json.loads(path.read_text())
+        paused_at = datetime.fromisoformat(data["paused_at"]) if data.get("paused_at") else None
+        report = data.get("last_report")
+        return paused_at, report if isinstance(report, dict) else None
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None, None
 
 
-def save_paused_at(path: Path, paused_at: datetime | None) -> None:
+def save_state(path: Path, paused_at: datetime | None, report: dict | None) -> None:
+    data = {"paused_at": paused_at.isoformat() if paused_at else None, "last_report": report}
     try:
-        path.write_text(json.dumps({"paused_at": paused_at.isoformat() if paused_at else None}))
+        # Escritura atómica: la app puede estar leyendo el archivo.
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False))
+        tmp.replace(path)
     except OSError:
-        pass  # la pausa sigue en memoria; solo se perdería al reiniciar
+        pass  # el estado sigue en memoria; solo se perdería al reiniciar
 
 
 def _listen_forever(topic: str, server: str, inbox: queue.Queue, log) -> None:

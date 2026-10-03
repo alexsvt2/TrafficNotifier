@@ -1,4 +1,4 @@
-"""CLI: python -m traffic_notifier {serve | check [--force] | test-notify}"""
+"""CLI: python -m traffic_notifier {serve | check [--force] | test-notify | validate | remote ...}"""
 
 import argparse
 import sys
@@ -22,6 +22,9 @@ def main(argv=None) -> int:
     check = commands.add_parser("check", help="revisa las rutas y notifica")
     check.add_argument("--force", action="store_true", help="ignora el horario")
     commands.add_parser("test-notify", help="manda un push de prueba")
+    commands.add_parser("validate", help="revisa que config.toml sea válido")
+    remote = commands.add_parser("remote", help="manda un comando al proceso que está corriendo, por ntfy")
+    remote.add_argument("action", choices=("check", "stop", "start"))
     args = parser.parse_args(argv)
 
     try:
@@ -29,7 +32,15 @@ def main(argv=None) -> int:
             serve(args.config, log)
         config = load_config(args.config)
         now = datetime.now()
-        if args.command == "test-notify":
+        if args.command == "validate":
+            log("config.toml es válido.")
+        elif args.command == "remote":
+            keyword = {"check": config.keyword, "stop": config.stop_keyword, "start": config.start_keyword}
+            # Prioridad mínima: el comando no debe sonar en los celulares suscritos.
+            ntfy.send(config.ntfy_topic, "TrafficNotifier", keyword[args.action], priority=1,
+                      server=config.ntfy_server)
+            log(f"Comando '{keyword[args.action]}' enviado.")
+        elif args.command == "test-notify":
             ntfy.send(config.ntfy_topic, "TrafficNotifier", "Prueba: las notificaciones funcionan ✅",
                       server=config.ntfy_server)
             log("Push de prueba enviado.")
