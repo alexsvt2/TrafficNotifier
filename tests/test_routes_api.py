@@ -1,6 +1,6 @@
 import unittest
 
-from traffic_notifier.routes_api import TrafficError, TravelTime, _waypoint, parse_response
+from traffic_notifier.routes_api import TrafficError, TrafficPath, TravelTime, _waypoint, parse_path, parse_response
 
 
 class ParseResponseTest(unittest.TestCase):
@@ -15,6 +15,22 @@ class ParseResponseTest(unittest.TestCase):
     def test_no_routes_raises(self):
         with self.assertRaises(TrafficError):
             parse_response({})
+
+
+class ParsePathTest(unittest.TestCase):
+    def test_missing_start_index_means_zero(self):
+        payload = {"routes": [{
+            "polyline": {"encodedPolyline": "abc"},
+            "travelAdvisory": {"speedReadingIntervals": [
+                {"endPolylinePointIndex": 3, "speed": "NORMAL"},
+                {"startPolylinePointIndex": 3, "endPolylinePointIndex": 5, "speed": "TRAFFIC_JAM"},
+            ]},
+        }]}
+        self.assertEqual(parse_path(payload), TrafficPath("abc", ((0, 3, "NORMAL"), (3, 5, "TRAFFIC_JAM"))))
+
+    def test_missing_polyline_raises(self):
+        with self.assertRaises(TrafficError):
+            parse_path({"routes": [{}]})
 
 
 class WaypointTest(unittest.TestCase):

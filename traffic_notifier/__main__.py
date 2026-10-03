@@ -5,11 +5,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from . import ntfy
-from .check import run_check
+from . import ntfy, static_map
+from .check import MapSnapshots, run_check
 from .config import ConfigError, load_config
 from .daemon import serve
-from .routes_api import get_travel_time
+from .routes_api import get_traffic_path, get_travel_time
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
 
@@ -33,7 +33,8 @@ def main(argv=None) -> int:
             ntfy.send(config.ntfy_topic, "TrafficNotifier", "Prueba: las notificaciones funcionan ✅",
                       server=config.ntfy_server)
             log("Push de prueba enviado.")
-        elif run_check(config, now, get_travel_time, ntfy.send, force=args.force):
+        elif run_check(config, now, get_travel_time, ntfy.send, force=args.force,
+                       snapshot=MapSnapshots(get_traffic_path, static_map.render)):
             log(f"Revisadas {len(config.routes)} ruta(s) y notificado.")
         else:
             log("Fuera del horario; no se revisó.")

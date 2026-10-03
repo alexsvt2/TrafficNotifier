@@ -27,15 +27,30 @@ def send(
     priority: int = 3,
     tags: tuple = (),
     server: str = "https://ntfy.sh",
-    timeout: float = 15,
+    attachment: bytes | None = None,
+    filename: str = "trafico.png",
+    actions: tuple = (),
+    timeout: float = 30,
 ) -> None:
+    """actions: hasta 3 pares (texto del botón, URL que abre)."""
     # Título y tags van como query params: los headers HTTP no admiten
     # acentos ni emojis de forma fiable.
     params = {"title": title, "priority": str(priority)}
     if tags:
         params["tags"] = ",".join(tags)
+    if actions:
+        # Formato JSON: el formato corto se rompe con las comas de "lat,lng".
+        params["actions"] = json.dumps(
+            [{"action": "view", "label": label, "url": url} for label, url in actions[:3]], ensure_ascii=False
+        )
+    if attachment is not None:
+        # Con adjunto, el cuerpo es el archivo y el texto va como parámetro.
+        params.update(message=message, filename=filename)
+        body, method = attachment, "PUT"
+    else:
+        body, method = message.encode("utf-8"), "POST"
     url = f"{server.rstrip('/')}/{urllib.parse.quote(topic)}?{urllib.parse.urlencode(params)}"
-    request = urllib.request.Request(url, data=message.encode("utf-8"), method="POST")
+    request = urllib.request.Request(url, data=body, method=method)
     try:
         with urllib.request.urlopen(request, timeout=timeout):
             pass

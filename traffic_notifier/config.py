@@ -27,9 +27,14 @@ class Config:
     interval_minutes: int = 30
     keyword: str = "revisar"
     cooldown_minutes: float = 2
+    stop_keyword: str = "detener"
+    start_keyword: str = "iniciar"
+    reminder_minutes: float = 60
     moderate: float = 1.15
     heavy: float = 1.40
     ntfy_server: str = "https://ntfy.sh"
+    map_enabled: bool = True
+    map_every_minutes: float = 60
 
 
 def load_config(path: Path) -> Config:
@@ -44,6 +49,7 @@ def load_config(path: Path) -> Config:
     schedule = data.get("schedule", {})
     thresholds = data.get("thresholds", {})
     command = data.get("command", {})
+    map_ = data.get("map", {})
     config = Config(
         google_api_key=_required_str(data, "google_api_key"),
         ntfy_topic=_required_str(data, "ntfy_topic"),
@@ -54,13 +60,23 @@ def load_config(path: Path) -> Config:
         interval_minutes=_number(schedule, "interval_minutes", Config.interval_minutes, "schedule", minimum=1),
         keyword=str(command.get("keyword", Config.keyword)).strip(),
         cooldown_minutes=_number(command, "cooldown_minutes", Config.cooldown_minutes, "command", minimum=0),
+        stop_keyword=str(command.get("stop", Config.stop_keyword)).strip(),
+        start_keyword=str(command.get("start", Config.start_keyword)).strip(),
+        reminder_minutes=_number(command, "reminder_minutes", Config.reminder_minutes, "command", minimum=1),
         moderate=float(thresholds.get("moderate", Config.moderate)),
         heavy=float(thresholds.get("heavy", Config.heavy)),
+        map_enabled=map_.get("enabled", Config.map_enabled),
+        map_every_minutes=_number(map_, "every_minutes", Config.map_every_minutes, "map", minimum=0),
     )
     if not config.routes:
         raise ConfigError("Agrega al menos una ruta con [[routes]].")
-    if not config.keyword:
-        raise ConfigError("command.keyword no puede estar vacío.")
+    keywords = [k.casefold() for k in (config.keyword, config.stop_keyword, config.start_keyword)]
+    if not all(keywords):
+        raise ConfigError("command.keyword, command.stop y command.start no pueden estar vacíos.")
+    if len(set(keywords)) < 3:
+        raise ConfigError("command.keyword, command.stop y command.start deben ser distintos.")
+    if not isinstance(config.map_enabled, bool):
+        raise ConfigError("map.enabled debe ser true o false.")
     if not 1 <= config.moderate <= config.heavy:
         raise ConfigError("Los umbrales deben cumplir 1 <= moderate <= heavy.")
     return config

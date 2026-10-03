@@ -45,6 +45,25 @@ class LoadConfigTest(unittest.TestCase):
         with self.assertRaisesRegex(ConfigError, "keyword"):
             load_config(write(base.replace("[[routes]]", '[command]\nkeyword = "  "\n[[routes]]')))
 
+    def test_pause_commands(self):
+        base = 'google_api_key = "k"\nntfy_topic = "t"\n[[routes]]\norigin = "a"\ndestination = "b"\n'
+        config = load_config(write(base))
+        self.assertEqual((config.stop_keyword, config.start_keyword, config.reminder_minutes), ("detener", "iniciar", 60))
+        custom = '[command]\nstop = "alto"\nstart = "sigue"\nreminder_minutes = 30\n[[routes]]'
+        config = load_config(write(base.replace("[[routes]]", custom)))
+        self.assertEqual((config.stop_keyword, config.start_keyword, config.reminder_minutes), ("alto", "sigue", 30))
+        with self.assertRaisesRegex(ConfigError, "distintos"):
+            load_config(write(base.replace("[[routes]]", '[command]\nstop = "Revisar"\n[[routes]]')))
+
+    def test_map_settings(self):
+        base = 'google_api_key = "k"\nntfy_topic = "t"\n[[routes]]\norigin = "a"\ndestination = "b"\n'
+        config = load_config(write(base))
+        self.assertEqual((config.map_enabled, config.map_every_minutes), (True, 60))
+        config = load_config(write(base.replace("[[routes]]", "[map]\nenabled = false\nevery_minutes = 90\n[[routes]]")))
+        self.assertEqual((config.map_enabled, config.map_every_minutes), (False, 90))
+        with self.assertRaisesRegex(ConfigError, "map.enabled"):
+            load_config(write(base.replace("[[routes]]", '[map]\nenabled = "no"\n[[routes]]')))
+
     def test_example_placeholders_are_rejected(self):
         with self.assertRaisesRegex(ConfigError, "google_api_key"):
             load_config(EXAMPLE)
