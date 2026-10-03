@@ -18,11 +18,24 @@ interval_minutes = 30   # cada cuánto revisa solo
 # (sin importar mayúsculas). La siguiente revisión automática se recorre.
 keyword = "revisar"
 cooldown_minutes = 2    # mínimo entre revisiones a demanda
+# "detener" pausa las revisiones automáticas hasta el día siguiente a la hora
+# de inicio; "iniciar" las reanuda antes. En pausa, dentro del horario, llega
+# un recordatorio cada reminder_minutes de que sigue conectado.
+stop = "detener"
+start = "iniciar"
+reminder_minutes = 60
 
 [thresholds]
 # tiempo con tráfico / tiempo normal
 moderate = 1.15   # >= 15% más lento → 🟡
 heavy = 1.40      # > 40% más lento → 🔴
+
+[map]
+# Cuando una ruta sale en 🔴, adjunta un mapa con los tramos lentos (naranja)
+# y atascados (rojo). Cada imagen cuesta una consulta Compute Routes Enterprise
+# por ruta (1,000 gratis al mes), por eso hay un mínimo entre imágenes.
+enabled = true
+every_minutes = 60      # una imagen por ruta como máximo cada tanto
 
 # Origen y destino: dirección en texto o "lat,lng".
 [[routes]]
